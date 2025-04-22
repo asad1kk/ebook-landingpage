@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://datyiclsvdactlwepuyc.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhdHlpY2xzdmRhY3Rsd2VwdXljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjI0NzA4NTgsImV4cCI6MjAzODA0Njg1OH0.oAKNMZuaJyNq7OU1VtIqq10DYtPCO6NHmxRxNJuK78c",
+    "NEXT_PUBLIC_EBOOK_URL": "https://datyiclsvdactlwepuyc.supabase.co/storage/v1/object/public/ebook//My%20Ebook.pdf",
+    "RESEND_API_KEY": "re_YMQEW9oL_9mta2qw7Yaa9mJXntRjg27Gn",
+    "OWNER_EMAIL": "asadikedu@gmail.com"
+  }
+} 
