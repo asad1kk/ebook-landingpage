@@ -1,7 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import emailjs from '@emailjs/browser';
+
+// EmailJS credentials
+const EMAILJS_SERVICE_ID = "service_15407fj"; 
+const EMAILJS_TEMPLATE_ID = "template_0p730qd"; 
+const EMAILJS_PUBLIC_KEY = "nOQjTyhmf3lf35LjP";
 
 const LeadCaptureForm = () => {
   const [fullName, setFullName] = useState('');
@@ -10,11 +16,17 @@ const LeadCaptureForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [serverError, setServerError] = useState('');
-  const [downloadUrl, setDownloadUrl] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+  const [emailDebug, setEmailDebug] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
 
-  // For direct download use
-  const ebookUrl = 'https://datyiclsvdactlwepuyc.supabase.co/storage/v1/object/public/ebook//My%20Ebook.pdf';
+  // The E-book URL
+  const ebookUrl = 'https://datyiclsvdactlwepuyc.supabase.co/storage/v1/object/public/ebook//The%20Self-Sabotage%20Blueprint%20(Unlocked).pdf';
+
+  // Initialize EmailJS once
+  useEffect(() => {
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+  }, []);
 
   // Animation variants
   const containerVariants = {
@@ -66,48 +78,81 @@ const LeadCaptureForm = () => {
     
     setIsSubmitting(true);
     setServerError('');
+    setEmailDebug('');
     
     try {
-      console.log('Submitting to API...');
-      const response = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fullName,
-          email,
-        }),
-      });
+      // Prepare the template parameters - try all possible parameter names for recipient
+      const templateParams = {
+        user_name: fullName,
+        user_email: email,
+        ebook_url: ebookUrl,
+        to_email: email,
+        to_name: fullName,
+        // Add these additional parameters to cover all possibilities
+        to: email,
+        recipient: email,
+        email: email,
+        reply_to: email,
+        from_name: "Luke Schembri",
+        subject: "Your Free E-Book Download!",
+        message: `Your e-book is ready to download: ${ebookUrl}`
+      };
       
-      const data = await response.json();
-      console.log('API response:', data);
+      console.log('Sending email via EmailJS with params:', templateParams);
       
-      if (!response.ok) {
-        throw new Error(data.error || 'Something went wrong with the submission');
+      // Send email using EmailJS
+      try {
+        // Using the more reliable sendForm method first
+        const emailjsResult = await emailjs.sendForm(
+          EMAILJS_SERVICE_ID,
+          EMAILJS_TEMPLATE_ID,
+          formRef.current as HTMLFormElement,
+          {
+            publicKey: EMAILJS_PUBLIC_KEY,
+          }
+        );
+        
+        console.log('EmailJS form success:', emailjsResult.text);
+        setEmailDebug(`Email sent successfully via form method. Response: ${emailjsResult.text}`);
+        setEmailSent(true);
+      } catch (formError) {
+        console.error('EmailJS form error:', formError);
+        
+        // Fall back to direct send method
+        try {
+          const sendResult = await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            templateParams,
+            EMAILJS_PUBLIC_KEY
+          );
+          
+          console.log('EmailJS send success:', sendResult.text);
+          setEmailDebug(`Email sent successfully via direct send. Response: ${sendResult.text}`);
+          setEmailSent(true);
+        } catch (sendError) {
+          console.error('EmailJS send error:', sendError);
+          setEmailDebug(`Both email methods failed. Error: ${sendError instanceof Error ? sendError.message : 'Unknown error'}`);
+          throw sendError;
+        }
       }
-      
-      // Store the download URL
-      setDownloadUrl(data.downloadUrl || ebookUrl);
-      
-      // Check if email was sent
-      setEmailSent(data.emailSent || false);
       
       setIsSubmitted(true);
       setFullName('');
       setEmail('');
     } catch (error) {
-      console.error('Error submitting form:', error);
-      setServerError(error instanceof Error ? error.message : 'Failed to submit form. Please try again later.');
+      console.error('Error during form submission:', error);
+      setServerError(error instanceof Error ? error.message : 'Failed to send email. You can still download the e-book below.');
+      setEmailSent(false);
+      setIsSubmitted(true);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Function to skip the database and go straight to download
+  // Function to skip directly to download
   const skipToDownload = () => {
     setIsSubmitted(true);
-    setDownloadUrl(ebookUrl);
   };
 
   return (
@@ -153,7 +198,7 @@ const LeadCaptureForm = () => {
                 </motion.div>
               )}
               
-              <form onSubmit={handleSubmit}>
+              <form ref={formRef} onSubmit={handleSubmit}>
                 <motion.div 
                   variants={itemVariants}
                   className="mb-6"
@@ -163,6 +208,7 @@ const LeadCaptureForm = () => {
                   </label>
                   <input
                     id="fullName"
+                    name="user_name" // Important: This name is used by EmailJS
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -185,6 +231,7 @@ const LeadCaptureForm = () => {
                   </label>
                   <input
                     id="email"
+                    name="user_email" // Important: This name is used by EmailJS
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -192,6 +239,20 @@ const LeadCaptureForm = () => {
                       errors.email ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="luke@example.com"
+                  />
+                  {/* Hidden inputs for all possible parameter names */}
+                  <input type="hidden" name="ebook_url" value={ebookUrl} />
+                  <input type="hidden" name="to_email" value={email} />
+                  <input type="hidden" name="to" value={email} />
+                  <input type="hidden" name="recipient" value={email} />
+                  <input type="hidden" name="to_name" value={fullName} />
+                  <input type="hidden" name="from_name" value="Luke Schembri" />
+                  <input type="hidden" name="reply_to" value={email} />
+                  <input type="hidden" name="subject" value="Your Free E-Book Download!" />
+                  <input 
+                    type="hidden" 
+                    name="message" 
+                    value={`Your e-book is ready to download: ${ebookUrl}`} 
                   />
                   {errors.email && (
                     <p className="mt-2 text-sm text-red-600">{errors.email}</p>
@@ -261,16 +322,24 @@ const LeadCaptureForm = () => {
                   <p className="text-sm text-gray-500 mt-2">
                     If you don't see it, please check your spam folder.
                   </p>
+                  {emailDebug && process.env.NODE_ENV === 'development' && (
+                    <p className="text-xs text-gray-400 mt-1 bg-gray-50 p-2 rounded">{emailDebug}</p>
+                  )}
                 </motion.div>
               ) : (
-                <motion.p 
-                  className="text-lg text-gray-600 mb-6"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  Your e-book is ready to download.
-                </motion.p>
+                <motion.div>
+                  <motion.p 
+                    className="text-lg text-gray-600 mb-3"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    Your e-book is ready to download.
+                  </motion.p>
+                  {emailDebug && process.env.NODE_ENV === 'development' && (
+                    <p className="text-xs text-gray-500 mb-4 bg-gray-50 p-2 rounded mx-auto max-w-md">{emailDebug}</p>
+                  )}
+                </motion.div>
               )}
               
               <motion.div 
@@ -280,7 +349,7 @@ const LeadCaptureForm = () => {
                 transition={{ delay: 0.5, type: "spring" }}
               >
                 <motion.a 
-                  href={downloadUrl}
+                  href={ebookUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block bg-primary hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-300"

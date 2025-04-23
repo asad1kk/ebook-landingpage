@@ -83,6 +83,21 @@ export async function sendUserEmailAction(userName: string, userEmail: string, e
     return { success: true, data };
   } catch (error) {
     console.error('Error sending user email:', error);
+    
+    // Check if this might be related to Resend free tier restrictions
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (errorMessage.includes('not allowed') || 
+        errorMessage.includes('restricted') || 
+        errorMessage.includes('not verified') ||
+        errorMessage.includes('permission') ||
+        errorMessage.includes('403')) {
+      return { 
+        error: 'Email sending restricted', 
+        details: 'Resend free tier only allows sending to verified emails. The download link is still available on the page.',
+        freeAccountLimitation: true
+      };
+    }
+    
     return { error: 'Failed to send user email' };
   }
 } 
